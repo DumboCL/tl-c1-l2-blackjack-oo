@@ -20,13 +20,11 @@
 
 class DataValidation
   def self.options_include?(options = ['Y', 'N'], choose)
-    choose = choose.upcase
-    options.include?(choose)
+    options.include?(choose.upcase)
   end
 
   def self.continue_next(choose)
-    choose = choose.upcase
-    choose == 'Y'
+    choose.upcase == 'Y'
   end
 end
 
@@ -69,13 +67,11 @@ class Hand
 
   def score
     result = 0
-    has_A = false
     count_A = 0
 
     cards.each do |card|
       if card.value.to_i == 0
         if card.value == 'A'
-          has_A = true
           count_A = count_A + 1
         else
           result += 10
@@ -85,7 +81,7 @@ class Hand
       end
     end
 
-    if has_A
+    if count_A > 0
       begin
         case 
         when result <= 10
@@ -101,15 +97,23 @@ class Hand
 end
 
 class Board
-  def self.draw(player_name,dealer_deck,player_deck)
+  def self.draw(player, dealer, display_dealer_cards = false)
     system 'clear'
-    puts "#{player_name}, Welcome to Blackjack Game."
+    puts "#{player.name}, Welcome to Blackjack Game."
     puts "==============="
     puts "Dealer's cards:"
-    puts dealer_deck.cards.count
+    if display_dealer_cards
+      dealer.hand.cards.each do |card|
+        print card
+        print "  "
+      end
+      puts
+    else
+      puts dealer.hand.cards.count
+    end
     puts "==============="
     puts "Player's cards:"
-    player_deck.cards.each do |card|
+    player.hand.cards.each do |card|
       print card
       print "  "
     end
@@ -137,15 +141,30 @@ class Game
     @deck = Deck.new    
   end
 
-  def has_result?(points, who)
-    if points > 21
-      puts "Sorry, #{who} scores #{points}, busted."
-      return true
-    elsif points == 21
-      puts "Aha, blackjack, #{who} win!!"
-      return true
-    end  
-    false  
+  def continue_draw_card?(points)
+    points >= 21 ? false : true
+  end
+
+  def show_result
+    player_score = player.hand.score
+    dealer_score = computer.hand.score
+    Board.draw(player, computer, display_dealer_cards = true)
+    if player_score > 21
+      puts "Sorry, you scores #{player_score}, busted."
+      puts "Dealer win!"  
+    elsif player_score == 21
+      puts "Aha, blackjack, you win!!"
+    elsif dealer_score > 21
+      puts "Oh, dealer scores #{dealer_score}, busted."
+      puts "You win!"
+    elsif dealer_score == 21
+      puts "Aha, blackjack, dealer win!!"
+    elsif player_score >= dealer_score
+      puts "Player scores #{player_score}, dealer scores #{dealer_score}, You win!"
+    else
+      puts "Dealer scores #{dealer_score}, player scores #{player_score}, Dealer wins!"     
+    end
+    puts
   end
 
   def play
@@ -153,43 +172,35 @@ class Game
     player.hand.cards << deck.draw_one_card
     computer.hand.cards << deck.draw_one_card
     computer.hand.cards << deck.draw_one_card
-    Board.draw(player.name, computer.hand, player.hand)
-    has_result = false
+    Board.draw(player, computer)
+    continue_draw_card = true
     # Player's turn
     begin
       puts "Please choose: 1) hit  2) stay"
       decision = gets.chomp.to_i
       if ![1, 2].include?(decision)
         puts "Error: you must enter 1 or 2"
-        has_result = false
+        continue_draw_card = true
         decision = 1
         next 
       end
       if decision == 1
         player.hand.cards << deck.draw_one_card
-        Board.draw(player.name, computer.hand, player.hand)
+        Board.draw(player, computer)
       end
-      has_result = has_result?(player.hand.score,"you")
-    end while !has_result and decision == 1
+      continue_draw_card = continue_draw_card?(player.hand.score)
+    end while continue_draw_card && decision == 1
 
     # Dealer's turn
     if decision == 2
       begin
         computer.hand.cards << deck.draw_one_card
-        Board.draw(player.name, computer.hand, player.hand)
+        Board.draw(player, computer)
       end while computer.hand.score < 17
-      has_result = has_result?(computer.hand.score,"dealer")
+      continue_draw_card = continue_draw_card?(computer.hand.score)
     end
 
-    if !has_result
-      player_score = player.hand.score
-      dealer_score = computer.hand.score
-      if player_score >= dealer_score
-        puts "Player scores #{player_score}, dealer scores #{dealer_score}, You win!"
-      else
-        puts "Dealer scores #{dealer_score}, player scores #{player_score}, Dealer wins!"     
-      end    
-    end    
+    show_result   
   end
 end
 
